@@ -27,10 +27,16 @@ class MyApp extends StatelessWidget {
 
 class MyAppState extends ChangeNotifier {
   var current = WordPair.random();
+  var history = <WordPair>[];
+
+  GlobalKey? historyListKey;
+
   var favourites = <WordPair>{};
-  var selectedIndex = 0;
 
   void getNext() {
+    history.insert(0, current);
+    var animatedList = historyListKey?.currentState as AnimatedListState?;
+    animatedList?.insertItem(0);
     current = WordPair.random();
     notifyListeners();
   }
@@ -50,11 +56,6 @@ class MyAppState extends ChangeNotifier {
 
   bool isFavourite() {
     return favourites.contains(current);
-  }
-
-  void changeView(int value) {
-    selectedIndex = value;
-    notifyListeners();
   }
 }
 
@@ -82,6 +83,17 @@ class _MyHomePageState extends State<MyHomePage> {
       default:
         throw UnimplementedError("This page has not been implemented");
     }
+
+    // The container for the current page, with its background color
+    // and subtle switching animation.
+    var colorScheme = Theme.of(context).colorScheme;
+    var mainArea = ColoredBox(
+      color: colorScheme.surfaceVariant,
+      child: AnimatedSwitcher(
+        duration: Duration(milliseconds: 200),
+        child: page,
+      ),
+    );
 
     return Scaffold(
       body: LayoutBuilder(
@@ -114,22 +126,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     },
                   ),
                 ),
-                Expanded(
-                  child: Container(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: page,
-                  ),
-                ),
+                Expanded(child: mainArea),
               ],
             );
           } else {
             return Column(children: [
-              Expanded(
-                  child: Container(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: page,
-                  ),
-                ),
+              Expanded(child: mainArea),
               SafeArea(
                 child: BottomNavigationBar(
                     items: [                    
@@ -180,27 +182,33 @@ class GeneratorPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            BigCard(pair: pair),
-            SizedBox(height: 10.0,),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    appState.toggleFavourite();
-                  }, 
-                  icon: Icon(icon),
-                  label: Text("Like")
-                ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    appState.getNext();
-                  }, 
-                  child: Text("Next")
-                ),
-              ],
-            ),
+            Expanded(
+            flex: 3,
+            child: HistoryListView(),
+          ),
+          SizedBox(height: 10),
+          BigCard(pair: pair),
+          SizedBox(height: 10),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  appState.toggleFavourite();
+                },
+                icon: Icon(icon),
+                label: Text('Like'),
+              ),
+              SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  appState.getNext();
+                },
+                child: Text('Next'),
+              ),
+            ],
+          ),
+          Spacer(flex: 2),
           ],
         ),
       );
@@ -276,4 +284,67 @@ class FavouritesPage extends StatelessWidget {
     );
   }
 
+}
+
+
+class HistoryListView extends StatefulWidget {
+  const HistoryListView({Key? key}) : super(key: key);
+
+  @override
+  State<HistoryListView> createState() => _HistoryListViewState();
+}
+
+class _HistoryListViewState extends State<HistoryListView> {
+  /// Needed so that [MyAppState] can tell [AnimatedList] below to animate
+  /// new items.
+  final _key = GlobalKey();
+
+  /// Used to "fade out" the history items at the top, to suggest continuation.
+  static const Gradient _maskingGradient = LinearGradient(
+    // This gradient goes from fully transparent to fully opaque black...
+    colors: [Colors.transparent, Colors.black],
+    // ... from the top (transparent) to half (0.5) of the way to the bottom.
+    stops: [0.0, 0.5],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<MyAppState>();
+    appState.historyListKey = _key;
+
+    return ShaderMask(
+      shaderCallback: (bounds) => _maskingGradient.createShader(bounds),
+      // This blend mode takes the opacity of the shader (i.e. our gradient)
+      // and applies it to the destination (i.e. our animated list).
+      blendMode: BlendMode.dstIn,
+      child: AnimatedList(
+        key: _key,
+        reverse: true,
+        padding: EdgeInsets.only(top: 100),
+        initialItemCount: appState.history.length,
+        itemBuilder: (context, index, animation) {
+          final pair = appState.history[index];
+          return SizeTransition(
+            sizeFactor: animation,
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  appState.toggle(pair);
+                },
+                icon: appState.favourites.contains(pair)
+                    ? Icon(Icons.favorite, size: 12)
+                    : SizedBox(),
+                label: Text(
+                  pair.asUpperCase,
+                  semanticsLabel: pair.asPascalCase,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
