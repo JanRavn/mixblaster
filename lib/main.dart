@@ -1,4 +1,4 @@
-import 'package:Mixblaster/favourites.dart';
+import 'package:mixblaster/favourites.dart';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +15,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => MyAppState(),
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'Mix Blaster',
         theme: ThemeData(
           useMaterial3: true,
@@ -27,21 +28,29 @@ class MyApp extends StatelessWidget {
 }
 
 class MyAppState extends ChangeNotifier {
-  var current = WordPair.random();
-  var history = <WordPair>[];
+  var current = WordPair.random().asUpperCase;
 
-  final store = new FavouritesStore();
+  var favourites = <String>[];
+  var history = <String>[];
+
+  final store = FavouritesStore();
 
   GlobalKey? historyListKey;
 
-  var favourites = <WordPair>{};
+  MyAppState() {
+    init();
+  }
 
+  void init() async {
+    favourites = await store.listFavourites();
+    notifyListeners();
+  }
 
   void getNext() {
     history.insert(0, current);
     var animatedList = historyListKey?.currentState as AnimatedListState?;
     animatedList?.insertItem(0);
-    current = WordPair.random();
+    current = WordPair.random().asUpperCase;
     notifyListeners();
   }
 
@@ -49,7 +58,7 @@ class MyAppState extends ChangeNotifier {
     toggle(current);
   }
 
-  void toggle(WordPair wp) {
+  void toggle(String wp) {
     if (favourites.contains(wp)) {
       favourites.remove(wp);
     } else {
@@ -76,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     Widget page;
     switch (selectedIndex) {
-      case 0: 
+      case 0:
         page = GeneratorPage();
         break;
       case 1:
@@ -100,75 +109,71 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
 
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 450) {
-            return Row(
-              children: [
-                SafeArea(
-                  child: NavigationRail(
-                    extended: constraints.maxWidth >= 600,
-                    destinations: [
-                      NavigationRailDestination(
-                        icon: Icon(Icons.home),
-                        label: Text('Home'),
-                      ),
-                      NavigationRailDestination(
-                        icon: Icon(Icons.favorite),
-                        label: Text('Favorites'),
-                      ),
-                      NavigationRailDestination(
-                        icon: Icon(Icons.settings),
-                        label: Text('Settings'),
-                      ),
-                    ],
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected: (value) {
-                      setState(() {
-                        selectedIndex = value;
-                      });
-                    },
+    return Scaffold(body: LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 450) {
+        return Row(
+          children: [
+            SafeArea(
+              child: NavigationRail(
+                extended: constraints.maxWidth >= 600,
+                destinations: [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.home),
+                    label: Text('Home'),
                   ),
-                ),
-                Expanded(child: mainArea),
-              ],
-            );
-          } else {
-            return Column(children: [
-              Expanded(child: mainArea),
-              SafeArea(
-                child: BottomNavigationBar(
-                    items: [                    
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.home),
-                        label: "Home",
-                      ),                
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.favorite),
-                        label: "Favorites",
-                      ),           
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.settings),
-                        label: "Settings",
-                      ),                      
-                    ],
-                    currentIndex: selectedIndex,
-                    onTap: (int value) => {
-                      setState(() {
-                        selectedIndex = value;
-                      }),
-                    },
-                  )
+                  NavigationRailDestination(
+                    icon: Icon(Icons.favorite),
+                    label: Text('Favorites'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.settings),
+                    label: Text('Settings'),
+                  ),
+                ],
+                selectedIndex: selectedIndex,
+                onDestinationSelected: (value) {
+                  setState(() {
+                    selectedIndex = value;
+                  });
+                },
               ),
-            ],);
-          }
-        }
-      )
-    );
+            ),
+            Expanded(child: mainArea),
+          ],
+        );
+      } else {
+        return Column(
+          children: [
+            Expanded(child: mainArea),
+            SafeArea(
+                child: BottomNavigationBar(
+              items: [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: "Home",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.favorite),
+                  label: "Favorites",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.settings),
+                  label: "Settings",
+                ),
+              ],
+              currentIndex: selectedIndex,
+              onTap: (int value) => {
+                setState(() {
+                  selectedIndex = value;
+                }),
+              },
+            )),
+          ],
+        );
+      }
+    }));
   }
 }
-
 
 class GeneratorPage extends StatelessWidget {
   @override
@@ -184,10 +189,10 @@ class GeneratorPage extends StatelessWidget {
     }
 
     return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Expanded(
             flex: 3,
             child: HistoryListView(),
           ),
@@ -214,9 +219,9 @@ class GeneratorPage extends StatelessWidget {
             ],
           ),
           Spacer(flex: 2),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 }
 
@@ -226,25 +231,23 @@ class BigCard extends StatelessWidget {
     required this.pair,
   });
 
-  final WordPair pair;
+  final String pair;
 
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
-    var style = theme.textTheme.displaySmall!.copyWith(
-      color: theme.colorScheme.onPrimary
-    );
+    var style = theme.textTheme.displaySmall!
+        .copyWith(color: theme.colorScheme.onPrimary);
 
     return Card(
       color: theme.colorScheme.primary,
       elevation: 5.0,
-      child: Padding(        
+      child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Text(
-          pair.asUpperCase, 
+          pair,
           style: style,
-          semanticsLabel: pair.asPascalCase,
-          ),
+        ),
       ),
     );
   }
@@ -256,14 +259,11 @@ class FavouritesPage extends StatelessWidget {
     var appState = context.watch<MyAppState>();
 
     var theme = Theme.of(context);
-    var style = theme.textTheme.displaySmall!.copyWith(
-      color: theme.colorScheme.onPrimaryContainer
-    );
+    var style = theme.textTheme.displaySmall!
+        .copyWith(color: theme.colorScheme.onPrimaryContainer);
 
     if (appState.favourites.isEmpty) {
-      return Center(
-        child: Text("No favorites yet!")
-      );
+      return Center(child: Text("No favorites yet!"));
     }
 
     return Center(
@@ -271,26 +271,26 @@ class FavouritesPage extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(20.0),
-            child: Text("My Favourites", style: style,),
+            child: Text(
+              "My Favourites",
+              style: style,
+            ),
           ),
-        
-          for (var fav in appState.favourites) 
+          for (var fav in appState.favourites)
             ListTile(
               leading: IconButton(
                 icon: Icon(Icons.favorite),
                 onPressed: () {
                   appState.toggle(fav);
-                },),              
-              title: Text(fav.asUpperCase),
+                },
+              ),
+              title: Text(fav),
             )
-    
         ],
       ),
     );
   }
-
 }
-
 
 class HistoryListView extends StatefulWidget {
   const HistoryListView({Key? key}) : super(key: key);
@@ -342,8 +342,7 @@ class _HistoryListViewState extends State<HistoryListView> {
                     ? Icon(Icons.favorite, size: 12)
                     : SizedBox(),
                 label: Text(
-                  pair.asUpperCase,
-                  semanticsLabel: pair.asPascalCase,
+                  pair,
                 ),
               ),
             ),
