@@ -1,3 +1,4 @@
+import 'package:Mixblaster/favourites.dart';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -29,9 +30,12 @@ class MyAppState extends ChangeNotifier {
   var current = WordPair.random();
   var history = <WordPair>[];
 
+  final store = new FavouritesStore();
+
   GlobalKey? historyListKey;
 
   var favourites = <WordPair>{};
+
 
   void getNext() {
     history.insert(0, current);
@@ -51,6 +55,7 @@ class MyAppState extends ChangeNotifier {
     } else {
       favourites.add(wp);
     }
+    store.saveFavourites(favourites.toList(growable: false));
     notifyListeners();
   }
 
